@@ -36,6 +36,20 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Check the APK has no network permission
+        run: |
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          AAPT=$(ls "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          if [ -z "$AAPT" ]; then
+            echo "aapt2 not found, skipping the permission check"
+          else
+            "$AAPT" dump permissions "$APK" | tee permissions.txt
+            if grep -q -E "INTERNET|ACCESS_NETWORK_STATE" permissions.txt; then
+              echo "The APK still asks for a network permission. Stopping."
+              exit 1
+            fi
+            echo "Confirmed: the APK has no network permission."
+          fi
       - name: Publish the APK
         env:
           GH_TOKEN: ${{ github.token }}
